@@ -1,0 +1,60 @@
+#!/bin/sh
+
+# Use neovim for vim if present.
+command -v nvim >/dev/null && alias vim="nvim" vimdiff="nvim -d"
+
+# Verbosity and settings that you pretty much just always are going to want.
+alias \
+	cp="cp -iv" \
+	ls="exa -lh" \
+	sl="exa -lh" \
+	l="exa -lh" \
+	mv="mv -iv" \
+	rm="rm -vI" \
+	mkd="mkdir -pv" \
+	yt="youtube-dl --add-metadata -i" \
+	yta="yt -x -f bestaudio/best" \
+	ffmpeg="ffmpeg -hide_banner"
+
+# Colorize commands when possible.
+#ls="ls -hN --color=auto --group-directories-first" \
+alias \
+	grep="grep --color=auto" \
+	diff="diff --color=auto" \
+	ccat="highlight --out-format=ansi"\
+	pip="pip3" \
+	python="python3" \
+    ipython="ipython --TerminalInteractiveShell.editing_mode=vi"
+
+
+# These common commands are just too long! Abbreviate them.
+alias \
+	magit="nvim -c MagitOnly" \
+    gtree="git log --graph --pretty=oneline --abbrev-commit" \
+	ref="shortcuts >/dev/null; source ${XDG_CONFIG_HOME:-$HOME/.config}/shortcutrc ; source ${XDG_CONFIG_HOME:-$HOME/.config}/zshnameddirrc" \
+	weath="less -S ${XDG_DATA_HOME:-$HOME/.local/share}/weatherreport" \
+	tmux="tmux -f ${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf" \
+	prog="cd ~/home/prog;ls" \
+	master="cd ~/home/master;ls"\
+	term="cd ~/home/;ls"\
+	study="cd ~/home/master/study;ls"\
+	research="cd ~/home/master/research;ls"\
+
+alias \
+	ka="killall" \
+	g="git" \
+	trem="transmission-remote" \
+	YT="youtube-viewer" \
+	sdn="sudo shutdown -h now" \
+	f="$FILE" \
+	t="tmux new-session -d -s Main \; new-window \; new-window -d\;
+	   tmux attach-session -d -t Main \; select-window -t 1 " \
+	v="$EDITOR" \
+	p="sudo pacman" \
+	xi="sudo xbps-install" \
+	xr="sudo xbps-remove -R" \
+	xq="xbps-query" \
+	z="zathura" \
+	gcc2="gcc -Wextra -pedantic -ansi -Wall" \
+	tcc="tcc -Wall"\
+    site="cd ~/home/mbottoni.github.io;ls" \
