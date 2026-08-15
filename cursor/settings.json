@@ -1,0 +1,19 @@
+{
+    "[python]": {
+        "editor.formatOnType": true
+    },
+    "jupyter.askForKernelRestart": false,
+    "window.zoomLevel": -1,
+    "terminal.integrated.env.windows": {
+        "PYTHONPATH": "${workspaceFolder}"
+    },
+    "github.copilot.editor.enableAutoCompletions": true,
+    "workbench.tree.indent": 12,
+    "git.enableSmartCommit": true,
+    "git.confirmSync": false,
+    "git.autofetch": true,
+    "workbench.colorTheme": "Visual Studio Dark",
+    "claudeCode.preferredLocation": "panel",
+    "window.autoDetectColorScheme": true,
+    "workbench.preferredDarkColorTheme": "Visual Studio Dark"
+}
