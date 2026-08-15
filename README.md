@@ -64,7 +64,7 @@ Zotero prefs are not applied automatically, see below.
 | `.zprofile`     | login shell profile           | `~/.zprofile` |
 | `.bashrc`       | bash config                   | `~/.bashrc` |
 | `aliasrc`, `shortcutrc` | shell aliases/shortcuts | sourced from `~/.zshrc` |
-| `nvim/`         | Neovim config                 | `~/.config/nvim/` |
+| `nvim/`         | Neovim config (see below)     | `~/.config/nvim/` |
 | `alacritty/`    | Alacritty terminal            | `~/.config/alacritty/` |
 | `tmux/`         | tmux                          | `~/.config/tmux/tmux.conf` (+ `~/.tmux.conf` link) |
 | `lf/`, `htop/`, `mpv/`, `yabai/` | misc tools   | `~/.config/<tool>/` |
@@ -73,6 +73,27 @@ Zotero prefs are not applied automatically, see below.
 | `cursor/`       | Cursor editor                 | see below |
 | `claude/`       | Claude Code                   | see below |
 | `zotero/`       | Zotero                        | see below |
+
+## Neovim
+
+```
+nvim/init.vim           -> ~/.config/nvim/init.vim
+nvim/autoload/plug.vim  -> ~/.config/nvim/autoload/plug.vim   (vim-plug itself)
+```
+
+Plugins are **not** tracked — `init.vim` declares them and vim-plug fetches them
+into `~/.local/share/nvim/plugged/` on `:PlugInstall`. `:PlugClean` removes
+whatever is no longer declared.
+
+Note there is also a stale `~/.config/nvim/plugged/` on older machines: that was
+the install path of an earlier vim-plug. The current one uses
+`stdpath('data')`, so anything under `~/.config/nvim/plugged` is dead weight and
+can be deleted.
+
+Completion is Copilot only — coc.nvim was removed, along with `supertab`,
+`completion-nvim` and `deoplete-jedi` (three things competing for `<Tab>`).
+Linting is ALE. `vim-pydocstring` needs `doq`, which its `make install` hook
+installs on first `:PlugInstall`.
 
 ## Cursor
 

@@ -240,9 +240,9 @@ module_bash()     { install_path .bashrc  "$HOME/.bashrc"; }
 module_zprofile() { install_path .zprofile "$HOME/.zprofile"; }
 
 module_nvim() {
-    install_path nvim/init.vim         "$XDG/nvim/init.vim"
-    install_path nvim/coc-settings.json "$XDG/nvim/coc-settings.json"
+    install_path nvim/init.vim          "$XDG/nvim/init.vim"
     install_path nvim/autoload/plug.vim "$XDG/nvim/autoload/plug.vim"
+    # Plugins are not vendored - vim-plug fetches them into ~/.config/nvim/plugged.
     note "run :PlugInstall inside nvim to fetch plugins"
 }
 

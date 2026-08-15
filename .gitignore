@@ -1,0 +1,6 @@
+# Neovim: vim-plug fetches these, :PlugInstall regenerates them
+nvim/plugged/
+nvim/pack/
+
+# netrw browsing history - machine-local
+.netrwhist

@@ -19,11 +19,8 @@ Plug 'tpope/vim-surround'
 Plug 'majutsushi/tagbar'
 Plug 'lervag/vimtex'
 Plug 'w0rp/ale'
-Plug 'nvim-lua/completion-nvim'
 Plug 'scrooloose/nerdtree'
 Plug 'scrooloose/nerdcommenter'
-Plug 'zchee/deoplete-jedi'
-Plug 'ervandew/supertab'
 Plug 'jiangmiao/auto-pairs'
 Plug 'junegunn/vim-easy-align'
 Plug 'alvan/vim-closetag'
@@ -33,96 +30,19 @@ Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
 Plug 'junegunn/fzf.vim'
 Plug 'sheerun/vim-polyglot'
 Plug 'chrisbra/Colorizer'
-Plug 'heavenshell/vim-pydocstring'
+Plug 'heavenshell/vim-pydocstring', { 'do': 'make install' }
 Plug 'vim-scripts/loremipsum'
 Plug 'SirVer/ultisnips'
 Plug 'honza/vim-snippets'
 Plug 'metakirby5/codi.vim'
 Plug 'dkarter/bullets.vim'
+Plug 'kdheepak/lazygit.nvim'
+Plug 'github/copilot.vim'
 
-
-" Semantic language support
-Plug 'neoclide/coc.nvim', {'branch': 'release'}
 call plug#end()
 
-
-" 'Smart' nevigation
-" Use tab for trigger completion with characters ahead and navigate.
-" NOTE: Use command ':verbose imap <tab>' to make sure tab is not mapped by
-" other plugin before putting this into your config.
-inoremap <silent><expr> <TAB>
-      \ pumvisible() ? "\<C-n>" :
-      \ <SID>check_back_space() ? "\<TAB>" :
-      \ coc#refresh()
-" Use <c-.> to trigger completion.
-inoremap <silent><expr> <c-.> coc#refresh()
-" Use <cr> to confirm completion, `<C-g>u` means break undo chain at current
-" position. Coc only does snippet and additional edit on confirm.
-if exists('*complete_info')
-  inoremap <expr> <cr> complete_info()["selected"] != "-1" ? "\<C-y>" : "\<C-g>u\<CR>"
-else
-  imap <expr> <cr> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
-endif
-" Use `[g` and `]g` to navigate diagnostics
-nmap <silent> [g <Plug>(coc-diagnostic-prev)
-nmap <silent> ]g <Plug>(coc-diagnostic-next)
-" GoTo code navigation.
-nmap <silent> gd <Plug>(coc-definition)
-nmap <silent> gy <Plug>(coc-type-definition)
-nmap <silent> gi <Plug>(coc-implementation)
-nmap <silent> gr <Plug>(coc-references)
-
-" Use K to show documentation in preview window.
-" nnoremap <silent> K :call <SID>show_documentation()<CR>
-
-"function! s:show_documentation()
-"  if (index(['vim','help'], &filetype) >= 0)
-"    execute 'h '.expand('<cword>')
-"  else
-"    call CocAction('doHover')
-"  endif
-"endfunction
-
-
-" Highlight the symbol and its references when holding the cursor.
-autocmd CursorHold * silent call CocActionAsync('highlight')
-
-" Symbol renaming.
-nmap <leader>rn <Plug>(coc-rename)
-
-" Introduce function text object
-" NOTE: Requires 'textDocument.documentSymbol' support from the language server.
-xmap if <Plug>(coc-funcobj-i)
-xmap af <Plug>(coc-funcobj-a)
-omap if <Plug>(coc-funcobj-i)
-omap af <Plug>(coc-funcobj-a)
-
-" Use <TAB> for selections ranges.
-nmap <silent> <TAB> <Plug>(coc-range-select)
-xmap <silent> <TAB> <Plug>(coc-range-select)
-
-" Find symbol of current document.
-nnoremap <silent> <space>o  :<C-u>CocList outline<cr>
-
-" Search workspace symbols.
-nnoremap <silent> <space>s  :<C-u>CocList -I symbols<cr>
-
-" Implement methods for trait
-nnoremap <silent> <space>i  :call CocActionAsync('codeAction', '', 'Implement missing members')<cr>
-
-" Show actions available at this location
-nnoremap <silent> <space>a  :CocAction<cr>
-
-
 """ Python3 VirtualEnv
-let g:python3_host_prog = expand('/usr/bin/python3')
-
-" Opaque Background (Comment out to use terminal's profile)
-set termguicolors
-
-" Transparent Background (For i3 and compton)
-highlight Normal guibg=NONE ctermbg=NONE
-highlight LineNr guibg=NONE ctermbg=NONE
+let g:python3_host_prog = exepath('python3')
 
 """ Other Configurations
 filetype plugin indent on
@@ -139,6 +59,10 @@ set clipboard+=unnamed
 set number
 set colorcolumn=0
 set nuw=5
+set cursorline
+set concealcursor=""
+" Disable the documentation window in the completion popup
+set completeopt-=preview
 
 """ Plugin Configurations
 
@@ -153,17 +77,15 @@ let g:NERDTreeMinimalUI = 1
 let g:lightline = {
       \ 'active': {
       \   'left': [ [ 'mode', 'paste' ],
-      \             [ 'cocstatus', 'readonly', 'filename', 'modified' ] ]
+      \             [ 'readonly', 'filename', 'modified' ] ]
       \ },
       \ 'component_function': {
-      \   'filename': 'LightlineFilename',
-      \   'cocstatus': 'coc#status'
+      \   'filename': 'LightlineFilename'
       \ },
       \ }
 function! LightlineFilename()
   return expand('%:t') !=# '' ? @% : '[No Name]'
 endfunction
-
 
 " Neovim :Terminal
 tmap <Esc> <C-\><C-n>
@@ -171,14 +93,6 @@ tmap <C-w> <Esc><C-w>
 "tmap <C-d> <Esc>:q<CR>
 autocmd BufWinEnter,WinEnter term://* startinsert
 autocmd BufLeave term://* stopinsert
-
-" Deoplete
-let g:deoplete#enable_at_startup = 1
-" Disable documentation window
-set completeopt-=preview
-
-" Supertab
-let g:SuperTabDefaultCompletionType = "<C-n>"
 
 " latex
 let g:tex_flavor = 'latex'
@@ -221,12 +135,29 @@ let g:fzf_colors =
   \ 'spinner': ['fg', 'Label'],
   \ 'header':  ['fg', 'Comment'] }
 
+" ALE
+" Set this to disable highlighting: let g:ale_set_highlights = 0
+let g:ale_c_cc_executable = 'gcc' " Or use 'clang'
+let g:ale_cpp_cc_executable = 'gcc' " Or use 'clang++'
+let g:ale_c_cc_options = '-std=c11 -Wall'
+let g:ale_cpp_cc_options = '-std=c++14 -Wall'
+let g:ale_linters = {'python': ['pylint']}
+
+" lazygit
+let g:lazygit_floating_window_winblend = 0 " transparency of floating window
+let g:lazygit_floating_window_scaling_factor = 0.9 " scaling factor for floating window
+let g:lazygit_floating_window_border_chars = ['╭','─', '╮', '│', '╯','─', '╰', '│'] " customize lazygit popup window border characters
+let g:lazygit_floating_window_use_plenary = 0 " use plenary.nvim to manage floating window if available
+let g:lazygit_use_neovim_remote = 1 " fallback to 0 if neovim-remote is not installed
+let g:lazygit_use_custom_config_file_path = 0 " config file path is evaluated if this value is 1
+let g:lazygit_config_file_path = [] " list of custom config file paths
+
 """ Filetype-Specific Configurations
 
 " HTML, XML, Jinja
 autocmd FileType html setlocal shiftwidth=2 tabstop=2 softtabstop=2
 autocmd FileType css setlocal shiftwidth=2 tabstop=2 softtabstop=2
-autocmd FileType xml setloca shiftwidth=2 tabstop=2 softtabstop=2
+autocmd FileType xml setlocal shiftwidth=2 tabstop=2 softtabstop=2
 autocmd FileType htmldjango setlocal shiftwidth=2 tabstop=2 softtabstop=2
 autocmd FileType htmldjango inoremap {{ {{  }}<left><left><left>
 autocmd FileType htmldjango inoremap {% {%  %}<left><left><left>
@@ -245,31 +176,14 @@ function! TrimWhitespace()
     call winrestview(l:save)
 endfunction
 
-" Dracula Mode (Dark)
-function! ColorDracula()
-    let g:airline_theme=''
-    color dracula
-    IndentLinesEnable
-endfunction
-
 " Seoul256 Mode (Dark & Light)
 function! ColorSeoul256()
-    let g:airline_theme='silver'
     color seoul256
-    IndentLinesDisable
-endfunction
-
-" Forgotten Mode (Light)
-function! ColorForgotten()    " Light airline themes: tomorrow, silver, alduin
-    " Light colors: forgotten-light, nemo-light
-    let g:airline_theme='tomorrow'
-    color forgotten-light
     IndentLinesDisable
 endfunction
 
 " Zazen Mode (Black & White)
 function! ColorZazen()
-    let g:airline_theme='badcat'
     color zazen
     IndentLinesEnable
 endfunction
@@ -280,11 +194,9 @@ let mapleader=","
 nmap <leader>q :NERDTreeToggle<CR>
 nmap <leader>w :TagbarToggle<CR>
 nmap <leader>ee :Colors<CR>
-nmap <leader>ea :AirlineTheme
 nmap <leader>e1 :set concealcursor=""<CR>
 nmap <leader>e2 :set relativenumber<CR>
 nmap <leader>e3 :set relativenumber!<CR>
-nmap <leader>e4 :call ColorDefault<CR>
 nmap <leader>r :so ~/.config/nvim/init.vim<CR>
 nmap <leader>t :call TrimWhitespace()<CR>
 xmap <leader>a gaip*
@@ -298,12 +210,13 @@ nmap <leader>h :RainbowParentheses!!<CR>
 nmap <leader>j :set filetype=journal<CR>
 nmap <leader>k :ColorToggle<CR>
 nmap <leader>l :Limelight!!<CR>
-autocmd FileType python nmap <leader>x :0,$!~/.config/nvim/env/bin/python -m yapf<CR>
-"nmap <leader>n :HackerNews best<CR>J
-nmap <silent> <leader><leader> :noh<CR>
 nmap <Tab> :bnext<CR>
 nmap <S-Tab> :bprevious<CR>l
 nnoremap <leader><leader> <c-^>
+
+" Compile document, be it groff/LaTeX/markdown/etc.
+" map <leader>c :w! \| !compiler <c-r>%<CR>
+map <leader>c :w! \| !pdflatex  <c-r>%<CR>
 
 "" Save file as sudo on files that require root permission
 cnoremap w!! execute 'silent! write !sudo tee % >/dev/null' <bar> edit!
@@ -327,54 +240,32 @@ autocmd BufWritePost *Xresources,*Xdefaults !xrdb %
 " Update binds when sxhkdrc is updated.
 autocmd BufWritePost *sxhkdrc !pkill -USR1 sxhkd
 
+" Runs a script that cleans out tex build files whenever I close out of a .tex file.
+autocmd VimLeave *.tex !texclear %
+
 " Turns off highlighting on the bits of code that are changed, so the line that is changed is highlighted but the
 " actual text that has changed stands out on the line and is readable.
 if &diff
     highlight! link DiffText MatchParen
 endif
 
-" Set this in your vimrc file to disabling highlighting
-" let g:ale_set_highlights = 0
-
-let g:ale_c_cc_executable = 'gcc' " Or use 'clang'
-let g:ale_cpp_cc_executable = 'gcc' " Or use 'clang++'
-let g:ale_c_cc_options = '-std=c11 -Wall'
-let g:ale_cpp_cc_options = '-std=c++14 -Wall'
-let g:ale_linters = {'python': ['pylint']}
-
-" Compile document, be it groff/LaTeX/markdown/etc.
-" map <leader>c :w! \| !compiler <c-r>%<CR>
-map <leader>c :w! \| !pdflatex  <c-r>%<CR>
-
-" Runs a script that cleans out tex build files whenever I close out of a .tex file.
-autocmd VimLeave *.tex !texclear %
-
-""" Coloring
-syntax on
-highlight Pmenu guibg=white guifg=black gui=bold
-highlight Comment gui=bold
-highlight Normal gui=none
-highlight NonText guibg=none
-
-colorscheme default
-"hi Normal guibg=black
-
-" Use <Tab> and <S-Tab> to navigate through popup menu
-" inoremap <expr> <Tab>   pumvisible() ? "\<C-n>" : "\<Tab>"
-" inoremap <expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
-
-" Set completeopt to have a better completion experience
-" set completeopt=menuone,noinsert,noselect
-
-" Avoid showing message extra message when using completion
-" set shortmess+=c
-set cul
-set concealcursor=""
-
-
-set cursorline!
-autocmd InsertEnter * highlight CursorLine guibg=#000050 guifg=fg
-autocmd InsertLeave * highlight CursorLine guibg=#004000 guifg=fg
-
 " Remove :W from fzf
 command! -nargs=* W w <args>
+
+""" Coloring
+" Order matters: `colorscheme` resets highlight groups, so every override has
+" to come after it.
+syntax on
+set termguicolors
+colorscheme default
+
+" Transparent background (uses the terminal's own background)
+highlight Normal guibg=NONE ctermbg=NONE gui=NONE
+highlight LineNr guibg=NONE ctermbg=NONE
+highlight NonText guibg=NONE ctermbg=NONE
+
+highlight Pmenu guibg=white guifg=black gui=bold
+highlight Comment gui=bold
+
+autocmd InsertEnter * highlight CursorLine guibg=#000050 guifg=fg
+autocmd InsertLeave * highlight CursorLine guibg=#004000 guifg=fg
