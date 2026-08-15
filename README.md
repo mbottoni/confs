@@ -1,21 +1,72 @@
 # confs
 
-Personal dotfiles / config backups (macOS).
+Personal dotfiles / config backups (macOS and Linux).
 
-Files are kept as copies, not symlinks — copy them back to the locations below
-when setting up a new machine.
+## Install on a new machine
+
+```sh
+git clone https://github.com/mbottoni/confs.git ~/configs
+cd ~/configs
+./install.sh
+```
+
+That symlinks every config for the current OS into place. Anything it would
+overwrite is moved to `~/.dotfiles-backup/<timestamp>/` first (same relative
+path, so restoring is a `mv` away), and re-running is safe — links already
+pointing at the repo are left alone.
+
+Preview first with `./install.sh --dry-run`.
+
+### Options
+
+| Flag | What it does |
+| ---- | ------------ |
+| `--dry-run`, `-n` | Print what would happen, write nothing |
+| `--copy` | Copy files instead of symlinking (edits then don't flow back to the repo) |
+| `--only zsh,tmux` | Install just those modules |
+| `--skip zotero` | Install everything except those |
+| `--list`, `-l` | List module names |
+| `--packages` | Also install the CLI tools the configs expect (brew / apt / dnf / pacman) |
+| `--cursor-extensions` | Also reinstall the Cursor extensions from `cursor/extensions.txt` |
+| `--help`, `-h` | Usage |
+
+Modules: `zsh`, `shell`, `bash`, `zprofile` (macOS), `nvim`, `tmux`,
+`alacritty`, `lf`, `htop`, `mpv`, `yabai` (macOS), `claude`, `cursor`,
+`zotero`. macOS-only modules are skipped automatically on Linux.
+
+### What it handles for you
+
+- Writes `export ZDOTDIR="$HOME/.config/zsh"` to `~/.zshenv` — `.zshrc` lives
+  under `~/.config/zsh`, and zsh won't find it otherwise.
+- Creates `~/.cache/zsh` for `HISTFILE`.
+- Clones `zsh-autosuggestions` from upstream (the repo only has a placeholder).
+- Links `~/.tmux.conf` → `~/.config/tmux/tmux.conf` for tmux < 3.1.
+- On Linux, writes `~/.tmux_local.conf` translating the `pbcopy` clipboard
+  bindings to `wl-copy` / `xclip` / `xsel` (skipped if the file already exists).
+- Picks the right Cursor config directory per OS.
+
+### After installing
+
+```sh
+exec zsh                        # or restart the terminal
+nvim +PlugInstall +qall         # fetch neovim plugins
+chsh -s "$(command -v zsh)"     # if zsh is not the login shell yet
+bash .macos                     # macOS defaults — optional, changes a lot
+```
+
+Zotero prefs are not applied automatically, see below.
 
 ## Layout
 
 | Dir / file      | What it is                    | Lives at |
 | --------------- | ----------------------------- | -------- |
-| `zsh/`          | zsh config, p10k, plugins     | `~/.zshrc`, `~/.p10k.zsh`, `~/.zsh/plugins/` |
+| `zsh/`          | zsh config, p10k, plugins     | `~/.config/zsh/` (needs `ZDOTDIR`) |
 | `.zprofile`     | login shell profile           | `~/.zprofile` |
 | `.bashrc`       | bash config                   | `~/.bashrc` |
 | `aliasrc`, `shortcutrc` | shell aliases/shortcuts | sourced from `~/.zshrc` |
 | `nvim/`         | Neovim config                 | `~/.config/nvim/` |
 | `alacritty/`    | Alacritty terminal            | `~/.config/alacritty/` |
-| `tmux/`         | tmux                          | `~/.tmux.conf` |
+| `tmux/`         | tmux                          | `~/.config/tmux/tmux.conf` (+ `~/.tmux.conf` link) |
 | `lf/`, `htop/`, `mpv/`, `yabai/` | misc tools   | `~/.config/<tool>/` |
 | `.macos`        | macOS defaults script         | run once |
 | `vscode/`       | VS Code profile export        | import via VS Code profiles |
@@ -31,7 +82,9 @@ cursor/keybindings.json   -> ~/Library/Application Support/Cursor/User/keybindin
 cursor/extensions.txt      # installed extensions
 ```
 
-Reinstall extensions:
+On Linux the User dir is `~/.config/Cursor/User/` instead.
+
+Reinstall extensions (`./install.sh --cursor-extensions` does this for you):
 
 ```sh
 xargs -n1 cursor --install-extension < cursor/extensions.txt
