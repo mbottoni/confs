@@ -31,8 +31,9 @@ Preview first with `./install.sh --dry-run`.
 | `--help`, `-h` | Usage |
 
 Modules: `zsh`, `shell`, `bash`, `zprofile` (macOS), `nvim`, `tmux`,
-`alacritty`, `lf`, `htop`, `mpv`, `yabai` (macOS), `claude`, `cursor`,
-`zotero`. macOS-only modules are skipped automatically on Linux.
+`alacritty`, `lf`, `htop`, `mpv`, `yabai` (macOS), `claude`, `opencode`,
+`ollama`, `cursor`, `zotero`. macOS-only modules are skipped automatically on
+Linux.
 
 ### What it handles for you
 
@@ -72,6 +73,8 @@ Zotero prefs are not applied automatically, see below.
 | `vscode/`       | VS Code profile export        | import via VS Code profiles |
 | `cursor/`       | Cursor editor                 | see below |
 | `claude/`       | Claude Code                   | see below |
+| `opencode/`     | opencode (local-LLM agent)    | `~/.config/opencode/` |
+| `ollama/`       | Ollama model definition       | see below |
 | `zotero/`       | Zotero                        | see below |
 
 ## Neovim
@@ -124,6 +127,74 @@ Plugins and marketplaces are declared inside `settings.json`
 (`enabledPlugins` / `extraKnownMarketplaces`), so Claude Code reinstalls them
 on first run. The rest of `~/.claude/` (sessions, history, projects, caches) is
 local state and deliberately not tracked.
+
+## opencode + ollama
+
+Runs [opencode](https://opencode.ai) against a local model, no API key and no
+network. Sized for a 16 GB M1 Pro.
+
+```
+opencode/opencode.json      -> ~/.config/opencode/opencode.json
+ollama/Modelfile.coder-q3   -> ~/.config/ollama/Modelfile.coder-q3
+```
+
+Setup on a new machine:
+
+```sh
+brew install ollama
+brew services start ollama
+ollama pull qwen3:8b
+ollama create coder-q3 -f ~/.config/ollama/Modelfile.coder-q3
+```
+
+Then `opencode` in any project picks the local model up from the config.
+
+### Why Qwen3 and not a coding model
+
+Qwen2.5-Coder (7B and 14B) does not work here. Through Ollama it emits tool
+calls as plain text instead of the structured `tool_calls` field, so opencode
+never executes them — it just prints JSON at you. That is the base models, not
+the config. Qwen3 8B returns proper tool calls, so it wins despite not being
+coder-tuned.
+
+The models that are genuinely good at agentic coding — Qwen3-Coder-30B,
+Devstral-24B — need ~18 GB at Q4 and do not fit in 16 GB. That is the binding
+constraint, not the config.
+
+`Modelfile.coder-q3` explains the context, temperature and template overrides
+inline; the template one is not obvious and is easy to undo by accident.
+
+### Keeping it fast
+
+Two things dominate latency, both fixed here:
+
+- **The model unloads after 5 minutes idle** and reloads 5 GB on the next
+  prompt. Add `OLLAMA_KEEP_ALIVE=2h` to `EnvironmentVariables` in
+  `~/Library/LaunchAgents/homebrew.mxcl.ollama.plist`, then
+  `launchctl unload/load` it. Homebrew rewrites that plist on service restart
+  or upgrade, so expect to redo it.
+- **Tool definitions were 54% of the prompt** — 5,297 tokens of the ~7,750 sent
+  every step, against 2,456 for the actual system prompt. `opencode.json`
+  disables `task`, `skill`, `todowrite` and `webfetch`, cutting the prompt 30%
+  to ~5,400 tokens.
+
+Together: first message ~31s (was ~53s), follow-ups ~3s. Prompt processing runs
+at ~111 tok/s and generation at ~24 tok/s on an M1 Pro; the first message of a
+session is mostly prompt processing, and later turns are fast because the prefix
+stays cached. Quantising the KV cache (`q8_0` vs `f16`) makes no measurable
+difference to speed — it is kept only because it saves 2.2 GB.
+
+### Known rough edges
+
+- **It corrupts files roughly 1 run in 4.** The model sometimes double-escapes
+  newlines in tool arguments, writing literal `\n` into the file, and then
+  cannot repair it — it loops until killed. Lower temperature reduced this;
+  nothing removed it. Keep work in git and read the diffs.
+- `permission.edit` is set to `ask` because of the above, so edits are confirmed
+  in the TUI. **In headless `opencode run` this silently skips every edit** —
+  exit 0, file unchanged, no error. Drop the `permission` block if scripting it.
+- Good for questions, reads and small single-file edits. Not something to point
+  at a real repo unsupervised.
 
 ## Zotero
 

@@ -1,0 +1,93 @@
+# coder-q3 - Qwen3 8B tuned to drive opencode locally on a 16 GB Apple Silicon Mac.
+#
+#   ollama pull qwen3:8b
+#   ollama create coder-q3 -f Modelfile.coder-q3
+#
+# Why this file exists instead of just using qwen3:8b:
+#
+# num_ctx      Ollama runs every model at a 4096-token context by default, no
+#              matter what the model supports. opencode's system prompt plus tool
+#              definitions is ~5.4k tokens, so at the default the conversation is
+#              silently truncated and the agent behaves erratically. 32k costs
+#              ~2.4 GB of KV cache; the whole thing still fits at 7.6 GB, 100% GPU.
+#
+# temperature  Qwen3 defaults to 0.6. At that setting the model intermittently
+#              double-escapes newlines in tool arguments, writing literal "\n"
+#              into source files and then looping without repairing them. 0.15
+#              cuts the rate a lot but does not eliminate it - see the README.
+#
+# TEMPLATE     Stock qwen3 emits reasoning before every tool call, which on an
+#              M1 Pro means minutes of thinking tokens per step. Ollama's
+#              `think: false` only works on /api/chat, and opencode talks to the
+#              OpenAI-compatible /v1 endpoint where it is ignored - as is a
+#              "/no_think" system prompt. So the stock template is inlined below
+#              with the thinking branches hard-forced off: the last user message
+#              always gets "/no_think" appended, and the assistant turn always
+#              opens with a pre-closed <think></think> block.
+#
+# Diff against upstream with: ollama show --template qwen3:8b
+
+FROM qwen3:8b
+PARAMETER num_ctx 32768
+PARAMETER temperature 0.15
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.05
+TEMPLATE """
+{{- $lastUserIdx := -1 -}}
+{{- range $idx, $msg := .Messages -}}
+{{- if eq $msg.Role "user" }}{{ $lastUserIdx = $idx }}{{ end -}}
+{{- end }}
+{{- if or .System .Tools }}<|im_start|>system
+{{ if .System }}
+{{ .System }}
+{{- end }}
+{{- if .Tools }}
+
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{{- range .Tools }}
+{"type": "function", "function": {{ .Function }}}
+{{- end }}
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call>
+{{- end -}}
+<|im_end|>
+{{ end }}
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 -}}
+{{- if eq .Role "user" }}<|im_start|>user
+{{ .Content }}
+{{- if eq $i $lastUserIdx }}
+   {{- " "}}/no_think
+{{- end }}<|im_end|>
+{{ else if eq .Role "assistant" }}<|im_start|>assistant
+{{ if (and $.IsThinkSet (and .Thinking (or $last (gt $i $lastUserIdx)))) -}}
+<think>{{ .Thinking }}</think>
+{{ end -}}
+{{ if .Content }}{{ .Content }}
+{{- else if .ToolCalls }}<tool_call>
+{{ range .ToolCalls }}{"name": "{{ .Function.Name }}", "arguments": {{ .Function.Arguments }}}
+{{ end }}</tool_call>
+{{- end }}{{ if not $last }}<|im_end|>
+{{ end }}
+{{- else if eq .Role "tool" }}<|im_start|>user
+<tool_response>
+{{ .Content }}
+</tool_response><|im_end|>
+{{ end }}
+{{- if and (ne .Role "assistant") $last }}<|im_start|>assistant
+<think>
+
+</think>
+
+
+{{ end }}
+{{- end }}"""
