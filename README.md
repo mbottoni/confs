@@ -149,6 +149,12 @@ ollama create coder-q3 -f ~/.config/ollama/Modelfile.coder-q3
 
 Then `opencode` in any project picks the local model up from the config.
 
+`aliasrc` defines `oc` as `opencode --auto`, which approves every permission
+that is not explicitly denied — no prompting. Plain `opencode` still asks before
+editing, since `opencode.json` sets `permission.edit` to `ask`. Note that in
+headless `opencode run` without `--auto`, that `ask` **silently skips every
+edit** — exit 0, file unchanged, no error.
+
 ### Why Qwen3 and not a coding model
 
 Qwen2.5-Coder (7B and 14B) does not work here. Through Ollama it emits tool
@@ -186,15 +192,30 @@ difference to speed — it is kept only because it saves 2.2 GB.
 
 ### Known rough edges
 
-- **It corrupts files roughly 1 run in 4.** The model sometimes double-escapes
-  newlines in tool arguments, writing literal `\n` into the file, and then
-  cannot repair it — it loops until killed. Lower temperature reduced this;
-  nothing removed it. Keep work in git and read the diffs.
-- `permission.edit` is set to `ask` because of the above, so edits are confirmed
-  in the TUI. **In headless `opencode run` this silently skips every edit** —
-  exit 0, file unchanged, no error. Drop the `permission` block if scripting it.
-- Good for questions, reads and small single-file edits. Not something to point
-  at a real repo unsupervised.
+**Edits succeed about a third of the time.** Across 8 runs of the same
+one-function edit, 3 produced correct code. The failures were not one bug but
+several:
+
+- Literal `\n` written into the file (the model double-escapes newlines in tool
+  arguments), after which it loops instead of repairing it.
+- Indentation flattened — `raise` left unindented under its `if` — giving an
+  `IndentationError`.
+- No edit at all: reads the file, answers, changes nothing.
+
+Lower temperature reduced the first one; nothing removed any of them. This is an
+8B model working from a ~5.4k-token prompt, not something config fixes.
+
+The three successes all took ~37s and went edit → error → read → edit: the
+failed first attempt forced it to read the file and get it right on the retry.
+The failures were 12-17s and one-shot. When it does not check its work, it is
+usually wrong.
+
+`opencode --auto` (aliased to `oc`) approves everything, including the loop
+detector that would otherwise catch the corruption case. That is the tradeoff
+being made deliberately — run it in a git repo and read every diff.
+
+Reads and questions are reliable; that path has no corruption risk. Treat edits
+as a draft to review, not as work that is done.
 
 ## Zotero
 
