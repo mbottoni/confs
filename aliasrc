@@ -59,8 +59,14 @@ alias \
 	tcc="tcc -Wall"\
     site="cd ~/home/mbottoni.github.io;ls" \
 
-# opencode against the local ollama model. --auto approves every permission that
-# is not explicitly denied, so it edits and runs commands without asking - and
-# that includes the loop detector that catches the model corrupting a file.
-# Run it in a git repo and read the diffs. See README (opencode + ollama).
+# opencode against the local llama.cpp model. --auto approves every permission
+# that is not explicitly denied, so it edits and runs commands without asking -
+# and that includes the loop detector that catches the model corrupting a file.
+# Run it in a git repo and read the diffs. See README (opencode + llama.cpp).
 alias oc="opencode --auto"
+
+# llama-server lifecycle. It runs as a LaunchAgent, so these are for restarting
+# it after editing llama-server.sh and for watching a load or a failure.
+alias llama-restart="launchctl kickstart -k gui/\$(id -u)/com.maruan.llama-server"
+alias llama-log="tail -f ~/Library/Logs/llama-server.log"
+alias llama-health="curl -s localhost:8080/health; echo"

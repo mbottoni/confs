@@ -74,7 +74,8 @@ Zotero prefs are not applied automatically, see below.
 | `cursor/`       | Cursor editor                 | see below |
 | `claude/`       | Claude Code                   | see below |
 | `opencode/`     | opencode (local-LLM agent)    | `~/.config/opencode/` |
-| `ollama/`       | Ollama model definition       | see below |
+| `llamacpp/`     | llama-server launch + agent   | see below |
+| `ollama/`       | Ollama model definition       | fallback, see below |
 | `zotero/`       | Zotero                        | see below |
 
 ## Neovim
@@ -128,26 +129,76 @@ Plugins and marketplaces are declared inside `settings.json`
 on first run. The rest of `~/.claude/` (sessions, history, projects, caches) is
 local state and deliberately not tracked.
 
-## opencode + ollama
+## opencode + llama.cpp
 
 Runs [opencode](https://opencode.ai) against a local model, no API key and no
-network. Sized for a 16 GB M1 Pro.
+network. Sized for a 16 GB M1 Pro. The runtime is `llama-server` from
+[llama.cpp](https://github.com/ggml-org/llama.cpp); Ollama is kept installed as a
+fallback but is no longer what opencode talks to.
 
 ```
-opencode/opencode.json      -> ~/.config/opencode/opencode.json
-ollama/Modelfile.coder-q3   -> ~/.config/ollama/Modelfile.coder-q3
+opencode/opencode.json                 -> ~/.config/opencode/opencode.json
+llamacpp/llama-server.sh               -> ~/.config/llamacpp/llama-server.sh
+llamacpp/com.maruan.llama-server.plist -> ~/Library/LaunchAgents/  (rendered, not linked)
+ollama/Modelfile.coder-q3              -> ~/.config/ollama/Modelfile.coder-q3   (fallback)
 ```
 
 Setup on a new machine:
 
 ```sh
-brew install ollama
-brew services start ollama
-ollama pull qwen3:8b
-ollama create coder-q3 -f ~/.config/ollama/Modelfile.coder-q3
+brew install llama.cpp
+mkdir -p ~/models/gguf
+curl -L -o ~/models/gguf/Qwen3.5-9B-UD-Q4_K_XL.gguf \
+  https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-UD-Q4_K_XL.gguf
+./install.sh --only llamacpp,opencode
 ```
 
-Then `opencode` in any project picks the local model up from the config.
+`install.sh` renders the LaunchAgent and bootstraps it, so the server comes up on
+login and stays up. Then `opencode` in any project picks the local model up from
+the config. `aliasrc` defines `llama-restart`, `llama-log` and `llama-health` for
+the server, and `oc` for opencode.
+
+### Why llama.cpp and not Ollama
+
+Ollama runs llama.cpp underneath, so this is not a speed argument — it is about
+one flag. Check what Ollama actually launches:
+
+```sh
+ps aux | grep llama-server
+#  ... --no-jinja --chat-template chatml ...
+```
+
+`--no-jinja` discards the chat template baked into the model and substitutes a
+generic ChatML one. That template is what defines the `<tool_call>` wrapper, and
+llama.cpp selects its per-model tool-call parser from it. Without it there is
+nothing to parse tool calls out of, so they come back as prose in the message
+body and opencode never executes them.
+
+That is the whole reason Qwen2.5-Coder "did not support tools" here, which the
+previous version of this README recorded as a property of the model. It was not
+— it was the runtime throwing the template away. Running `llama-server` directly
+with `--jinja` (the default in current builds) returns a structured `tool_calls`
+field.
+
+The same flag removes the other hack: `Modelfile.coder-q3` had to inline a
+hand-edited copy of Qwen's template to force thinking off, because Ollama's
+`think: false` only works on `/api/chat` and is ignored on the OpenAI-compatible
+`/v1` endpoint opencode uses. llama.cpp has `--reasoning off`, which drives the
+template's own switch. No forked template to maintain.
+
+### The model
+
+Qwen3.5-9B at `UD-Q4_K_XL` — 5.97 GB of weights, ~8.5 GB resident with a 32k
+context. It replaces Qwen3 8B: same size class, but tool-calling and coding were
+specifically improved in the 3.5 release, and it does not need the template
+surgery.
+
+The 30B-class models that are genuinely strong at agentic coding
+(Qwen3-Coder-30B-A3B, Devstral-24B) need ~18 GB at Q4. Q3 fits on paper at ~13 GB
+but leaves nothing for KV cache or macOS and swaps. 9B dense is the ceiling on
+this machine — that is the binding constraint, not the config.
+
+`llamacpp/llama-server.sh` explains every flag inline.
 
 `aliasrc` defines `oc` as `opencode --auto`, which approves every permission
 that is not explicitly denied — no prompting. Plain `opencode` still asks before
@@ -155,67 +206,88 @@ editing, since `opencode.json` sets `permission.edit` to `ask`. Note that in
 headless `opencode run` without `--auto`, that `ask` **silently skips every
 edit** — exit 0, file unchanged, no error.
 
-### Why Qwen3 and not a coding model
-
-Qwen2.5-Coder (7B and 14B) does not work here. Through Ollama it emits tool
-calls as plain text instead of the structured `tool_calls` field, so opencode
-never executes them — it just prints JSON at you. That is the base models, not
-the config. Qwen3 8B returns proper tool calls, so it wins despite not being
-coder-tuned.
-
-The models that are genuinely good at agentic coding — Qwen3-Coder-30B,
-Devstral-24B — need ~18 GB at Q4 and do not fit in 16 GB. That is the binding
-constraint, not the config.
-
-`Modelfile.coder-q3` explains the context, temperature and template overrides
-inline; the template one is not obvious and is easy to undo by accident.
-
 ### Keeping it fast
 
-Two things dominate latency, both fixed here:
+Three things dominate latency, all fixed here:
 
-- **The model unloads after 5 minutes idle** and reloads 5 GB on the next
-  prompt. Add `OLLAMA_KEEP_ALIVE=2h` to `EnvironmentVariables` in
-  `~/Library/LaunchAgents/homebrew.mxcl.ollama.plist`, then
-  `launchctl unload/load` it. Homebrew rewrites that plist on service restart
-  or upgrade, so expect to redo it.
+- **The model unloading when idle.** Under Ollama this meant reloading 5 GB on
+  the next prompt after 5 minutes, and the fix (`OLLAMA_KEEP_ALIVE=2h` in
+  Homebrew's plist) got overwritten every time the service restarted or
+  upgraded. `llama-server` holds the model for as long as it runs, and the
+  LaunchAgent under `com.maruan` is hand-written, so nothing regenerates it.
 - **Tool definitions were 54% of the prompt** — 5,297 tokens of the ~7,750 sent
   every step, against 2,456 for the actual system prompt. `opencode.json`
   disables `task`, `skill`, `todowrite` and `webfetch`, cutting the prompt 30%
-  to ~5,400 tokens.
+  to ~5,400 tokens. Re-enable `todowrite` first if you want one back; it is the
+  cheapest of the four.
+- **Reprocessing the prompt when its middle changes.** Agent prompts shift in
+  the middle, not at the end — a file listing or timestamp moves and everything
+  after it does too, which defeats a plain prefix cache. `--cache-reuse 256`
+  lets the server KV-shift around the changed chunk.
 
-Together: first message ~31s (was ~53s), follow-ups ~3s. Prompt processing runs
-at ~111 tok/s and generation at ~24 tok/s on an M1 Pro; the first message of a
-session is mostly prompt processing, and later turns are fast because the prefix
-stays cached. Quantising the KV cache (`q8_0` vs `f16`) makes no measurable
-difference to speed — it is kept only because it saves 2.2 GB.
+Quantising the KV cache (`q8_0` vs `f16`) makes no measurable difference to
+speed — it is kept only because it saves 2.2 GB.
+
+**Do not leave Ollama running alongside it.** With `OLLAMA_KEEP_ALIVE=2h` its
+server holds ~8 GB for two hours after any use, and 8 GB plus llama.cpp's 8.5 GB
+does not fit in 16 GB — the machine swaps and both get slow. `brew services stop
+ollama`; start it again only when actually falling back.
+
+### Measured on an M1 Pro
+
+Against the previous Ollama + Qwen3 8B setup, same machine, same opencode config:
+
+| | Ollama / Qwen3 8B | llama.cpp / Qwen3.5 9B |
+|---|---|---|
+| prompt processing | ~111 tok/s | **~209 tok/s** |
+| generation | ~24 tok/s | ~19 tok/s |
+| cold ~4.4k-token prompt | — | 21 s |
+| warm follow-up turn | ~3 s | ~4.5 s |
+| correct one-function edits | 3 / 8 | **8 / 8** |
+| thinking tokens emitted | 0 (forked template) | 0 (`--reasoning off`) |
+
+Generation is slightly slower because this is a 9B at a fatter quant, not an 8B
+at `Q4_K_M`. Prompt processing — which is most of the wait, since every agent
+turn re-sends a ~5.4k-token prompt — nearly doubles.
 
 ### Known rough edges
 
-**Edits succeed about a third of the time.** Across 8 runs of the same
-one-function edit, 3 produced correct code. The failures were not one bug but
-several:
+The edit corruption that dominated the Ollama setup is gone. 8 of 8 runs of the
+same one-function edit produced code that parsed and behaved correctly, against
+3 of 8 before. The specific failures that are no longer reproducible:
 
-- Literal `\n` written into the file (the model double-escapes newlines in tool
-  arguments), after which it loops instead of repairing it.
-- Indentation flattened — `raise` left unindented under its `if` — giving an
-  `IndentationError`.
+- Literal `\n` written into the file, from the model double-escaping newlines in
+  tool arguments.
+- Indentation flattened, giving an `IndentationError`.
 - No edit at all: reads the file, answers, changes nothing.
 
-Lower temperature reduced the first one; nothing removed any of them. This is an
-8B model working from a ~5.4k-token prompt, not something config fixes.
+Most of that was never a sampling problem — it was the generic ChatML template
+mangling tool arguments on the way out. Lowering the temperature only ever
+masked it.
 
-The three successes all took ~37s and went edit → error → read → edit: the
-failed first attempt forced it to read the file and get it right on the retry.
-The failures were 12-17s and one-shot. When it does not check its work, it is
-usually wrong.
+What has not changed:
 
-`opencode --auto` (aliased to `oc`) approves everything, including the loop
-detector that would otherwise catch the corruption case. That is the tradeoff
-being made deliberately — run it in a git repo and read every diff.
+- This is still a 9B model. It is good at single-file, well-specified edits and
+  gets vaguer the larger the task. It is not a substitute for a frontier model
+  on anything architectural.
+- `opencode --auto` (aliased to `oc`) approves everything, including the loop
+  detector. That is the tradeoff being made deliberately — run it in a git repo
+  and read every diff.
 
-Reads and questions are reliable; that path has no corruption risk. Treat edits
-as a draft to review, not as work that is done.
+Reads and questions are reliable. Treat edits as a draft to review, not as work
+that is done.
+
+### Checking it
+
+```sh
+llama-health                       # {"status":"ok"}
+llama-log                          # tail the server log
+llama-restart                      # after editing llama-server.sh
+```
+
+If tool calls come back as prose in the message body rather than as a
+`tool_calls` field, the template is not being used — check that `--jinja` is
+still in effect and that opencode is pointed at port 8080, not at Ollama.
 
 ## Zotero
 
