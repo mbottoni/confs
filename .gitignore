@@ -4,3 +4,6 @@ nvim/pack/
 
 # netrw browsing history - machine-local
 .netrwhist
+
+# zsh completion cache - compinit regenerates it
+.zcompdump*
