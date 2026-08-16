@@ -1,0 +1,34 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://localhost:11434/v1",
+        "apiKey": "ollama"
+      },
+      "models": {
+        "coder-q3": {
+          "name": "Qwen3 8B (local, agentic)",
+          "tool_call": true,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
+  "model": "ollama/coder-q3",
+  "small_model": "ollama/coder-q3",
+  "permission": {
+    "edit": "ask"
+  },
+  "tools": {
+    "task": false,
+    "skill": false,
+    "todowrite": false,
+    "webfetch": false
+  }
+}

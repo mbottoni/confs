@@ -45,6 +45,8 @@ htop:any
 mpv:any
 yabai:macos
 claude:any
+opencode:any
+ollama:any
 cursor:any
 zotero:any
 "
@@ -312,6 +314,39 @@ module_yabai() {
 }
 
 module_claude() { install_path claude/settings.json "$HOME/.claude/settings.json"; }
+
+module_opencode() { install_path opencode/opencode.json "$XDG/opencode/opencode.json"; }
+
+# The Modelfile is not read from a config dir - it is an input to `ollama
+# create`. Linking it just puts it somewhere predictable; building the model
+# pulls ~5 GB, so that stays opt-in.
+module_ollama() {
+    install_path ollama/Modelfile.coder-q3 "$XDG/ollama/Modelfile.coder-q3"
+
+    if ! have ollama; then
+        note "ollama not installed - brew install ollama"
+        return 0
+    fi
+
+    # Not `ollama list | grep -q`: grep -q exits on the first match, ollama takes
+    # SIGPIPE, and under `set -o pipefail` the pipeline reports failure even when
+    # the model is there. Match against a captured string instead.
+    local models
+    models="$(ollama list 2>/dev/null || true)"
+    if grep -q '^coder-q3' <<<"$models"; then
+        note "ok       coder-q3 model present"
+    else
+        note "build it: ollama pull qwen3:8b && ollama create coder-q3 -f $(tilde "$XDG/ollama/Modelfile.coder-q3")"
+    fi
+
+    # Without this the model unloads after 5 minutes idle and the next prompt
+    # pays a full reload. Homebrew regenerates this plist on service restart or
+    # upgrade, so it is a note rather than an edit - it would not survive.
+    local plist="$HOME/Library/LaunchAgents/homebrew.mxcl.ollama.plist"
+    if [ "$OS" = macos ] && [ -f "$plist" ] && ! grep -q OLLAMA_KEEP_ALIVE "$plist"; then
+        note "set OLLAMA_KEEP_ALIVE=2h in $(tilde "$plist") - see README (opencode + ollama)"
+    fi
+}
 
 module_cursor() {
     local user_dir
