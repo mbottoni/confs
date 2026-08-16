@@ -58,3 +58,9 @@ alias \
 	gcc2="gcc -Wextra -pedantic -ansi -Wall" \
 	tcc="tcc -Wall"\
     site="cd ~/home/mbottoni.github.io;ls" \
+
+# opencode against the local ollama model. --auto approves every permission that
+# is not explicitly denied, so it edits and runs commands without asking - and
+# that includes the loop detector that catches the model corrupting a file.
+# Run it in a git repo and read the diffs. See README (opencode + ollama).
+alias oc="opencode --auto"
