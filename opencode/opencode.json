@@ -1,16 +1,34 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {
+    "llamacpp": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "llama.cpp (local)",
+      "options": {
+        "baseURL": "http://127.0.0.1:8080/v1",
+        "apiKey": "llamacpp"
+      },
+      "models": {
+        "qwen3.5-9b": {
+          "name": "Qwen3.5 9B (local, agentic)",
+          "tool_call": true,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        }
+      }
+    },
     "ollama": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Ollama (local)",
+      "name": "Ollama (local, fallback)",
       "options": {
         "baseURL": "http://localhost:11434/v1",
         "apiKey": "ollama"
       },
       "models": {
         "coder-q3": {
-          "name": "Qwen3 8B (local, agentic)",
+          "name": "Qwen3 8B (local, ollama)",
           "tool_call": true,
           "limit": {
             "context": 32768,
@@ -20,8 +38,8 @@
       }
     }
   },
-  "model": "ollama/coder-q3",
-  "small_model": "ollama/coder-q3",
+  "model": "llamacpp/qwen3.5-9b",
+  "small_model": "llamacpp/qwen3.5-9b",
   "permission": {
     "edit": "ask"
   },

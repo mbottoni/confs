@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Keeps llama-server running so opencode never pays a model load.
+
+  This is deliberately a hand-written agent under com.maruan rather than a
+  `brew services` one. Homebrew regenerates its own plists on every service
+  restart and upgrade, which is what kept eating the OLLAMA_KEEP_ALIVE setting
+  the old setup needed. Nothing rewrites this file.
+
+  __HOME__ is substituted by install.sh - launchd does not expand ~ or $HOME
+  in program arguments, so the path has to be literal.
+
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.maruan.llama-server.plist
+    launchctl kickstart -k gui/$(id -u)/com.maruan.llama-server   # restart
+    launchctl bootout   gui/$(id -u)/com.maruan.llama-server      # stop
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.maruan.llama-server</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__HOME__/.config/llamacpp/llama-server.sh</string>
+    </array>
+
+    <!-- llama-server lives in the Homebrew prefix, which is not on launchd's
+         default PATH. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart if it dies, but not in a tight loop if the model file is
+         missing and it exits immediately. -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/llama-server.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/llama-server.log</string>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>

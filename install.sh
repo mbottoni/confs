@@ -46,6 +46,7 @@ mpv:any
 yabai:macos
 claude:any
 opencode:any
+llamacpp:any
 ollama:any
 cursor:any
 zotero:any
@@ -317,9 +318,45 @@ module_claude() { install_path claude/settings.json "$HOME/.claude/settings.json
 
 module_opencode() { install_path opencode/opencode.json "$XDG/opencode/opencode.json"; }
 
+# llama-server is what opencode actually talks to. The launch script carries all
+# the tuning and can be linked like anything else; the LaunchAgent cannot, because
+# launchd will not expand ~ or $HOME inside ProgramArguments, so it is rendered
+# from a __HOME__ template into a real file.
+module_llamacpp() {
+    install_path llamacpp/llama-server.sh "$XDG/llamacpp/llama-server.sh"
+    [ "$DRY_RUN" = 0 ] && chmod +x "$REPO/llamacpp/llama-server.sh"
+
+    if ! have llama-server; then
+        note "llama-server not installed - brew install llama.cpp"
+    fi
+
+    local model="$HOME/models/gguf/Qwen3.5-9B-UD-Q4_K_XL.gguf"
+    if [ -f "$model" ]; then
+        note "ok       $(tilde "$model")"
+    else
+        note "download it: see the header of llamacpp/llama-server.sh (~6 GB)"
+    fi
+
+    [ "$OS" = macos ] || return 0
+
+    # Rendered, not linked: launchd needs a literal absolute path.
+    local plist="$HOME/Library/LaunchAgents/com.maruan.llama-server.plist"
+    note "render   $(tilde "$plist")"
+    if [ "$DRY_RUN" = 0 ]; then
+        mkdir -p "$(dirname "$plist")"
+        sed "s|__HOME__|$HOME|g" "$REPO/llamacpp/com.maruan.llama-server.plist" > "$plist"
+        # bootout first so a re-run picks up an edited plist instead of silently
+        # keeping the old one loaded. Both calls are allowed to fail: bootout
+        # errors when it is not loaded, which is the normal first-run case.
+        launchctl bootout   "gui/$(id -u)/com.maruan.llama-server" 2>/dev/null || true
+        launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null || \
+            note "load it: launchctl bootstrap gui/\$(id -u) $(tilde "$plist")"
+    fi
+}
+
 # The Modelfile is not read from a config dir - it is an input to `ollama
 # create`. Linking it just puts it somewhere predictable; building the model
-# pulls ~5 GB, so that stays opt-in.
+# pulls ~5 GB, so that stays opt-in. Kept as a fallback behind llama.cpp.
 module_ollama() {
     install_path ollama/Modelfile.coder-q3 "$XDG/ollama/Modelfile.coder-q3"
 
